@@ -3,18 +3,13 @@ FROM latexjs/texlive
 RUN apt-get update && \
     apt-get install --no-install-recommends --no-install-suggests -y \
         default-jre \
+        emscripten \
         unzip \
+        git \
         && rm -rf /var/lib/apt/lists/*
-RUN wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz && \
-    tar -xvzf emsdk-portable.tar.gz && rm emsdk-portable.tar.gz && \
-    cd emsdk-portable && ./emsdk update
-RUN cd emsdk-portable && ./emsdk install latest
-RUN cd emsdk-portable && ./emsdk activate latest
-ENV PATH /app/emsdk-portable:/app/emsdk-portable/clang/tag-e1.37.9/build_tag-e1.37.9_64/bin:/app/emsdk-portable/node/4.1.1_64bit/bin:/app/emsdk-portable/emscripten/tag-1.37.9:$PATH
-RUN emcc --version
 # 2. Get hold of the latest sources for texlive 2016.
-RUN wget http://mirror.ox.ac.uk/sites/ctan.org/systems/texlive/Source/texlive-20160523b-source.tar.xz && \
-	tar xJvf texlive-20160523b-source.tar.xz && \
+RUN wget http://mirror.ox.ac.uk/sites/ctan.org/systems/texlive/Source/texlive-20190408-source.tar.xz && \
+	tar xJvf texlive-20190408-source.tar.xz && \
     mkdir texlive_binary_build && cd ./texlive_binary_build && \
     ../texlive-*-source/configure \
         --without-x \
@@ -30,13 +25,14 @@ RUN cd ./texlive_binary_build/texk/web2c && make pdftex && make bibtex
 # 4. Now attemt to make an emscripten build of pdftex - we know this
 # will fail without the native binaries...
 RUN mkdir texlive_emscripten_build && cd ./texlive_emscripten_build && \
-    EMCONFIGURE_JS=0 emconfigure ../texlive-*-source/configure \
+    EMCONFIGURE_JS=0 ERROR_ON_UNDEFINED_SYMBOLS=0 emconfigure ../texlive-20190408-source/configure \
         --without-x \
         --disable-shared \
         --disable-all-pkgs \
         --enable-pdftex \
         --enable-bibtex \
         --enable-native-texlive-build CC=emcc CFLAGS='-DELIDE_CODE -O3'
+RUN cd ./texlive_emscripten_build && ls
 RUN cd ./texlive_emscripten_build && EMCONFIGURE_JS=0 emconfigure make
 RUN cd ./texlive_emscripten_build/texk/web2c && emmake make pdftex; exit 0
 # 5. Copy in the binaries from above and rebuild, this time we will succeed.
@@ -78,7 +74,7 @@ RUN node pdflatex.js --version && \
     node bibtex.js --version && \
     node kpsewhich.js --version
 # 7. Clear up everything
-RUN rm -rf ./demo.* ./emsdk-portable ./texlive-*-source* ./texlive_binary_build ./texlive_emscripten_build  /root/.emscripten* /root/.latexjs
+RUN rm -rf ./demo.* ./emsdk ./texlive-*-source* ./texlive_binary_build ./texlive_emscripten_build  /root/.emscripten* /root/.latexjs
 # Tidy up the build apps into their own dir.
 RUN mkdir apps && mv latex.js pdflatex.js bibtex.js kpsewhich.js latexmk_config.pl ./apps/
 # 8. Now we add latexmk (the most up to date version we can from source)

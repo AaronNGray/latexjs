@@ -1,8 +1,9 @@
-FROM ubuntu:16.04
+FROM ubuntu:eoan
 RUN apt-get update && \
     apt-get install --no-install-recommends --no-install-suggests -y \
         build-essential \
         cmake \
+        emscripten \
         nodejs \
         npm \
         python2.7 \
